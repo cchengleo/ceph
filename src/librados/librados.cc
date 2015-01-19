@@ -103,6 +103,11 @@ static void set_op_flags(::ObjectOperation *o, int flags)
   o->set_last_op_flags(rados_flags);
 }
 
+static void set_op_priority(::ObjectOperation *o, int priority)
+{
+  o->set_op_priority(priority);
+}
+
 //deprcated
 void librados::ObjectOperation::set_op_flags(ObjectOperationFlags flags)
 {
@@ -114,6 +119,12 @@ void librados::ObjectOperation::set_op_flags2(int flags)
 {
   ::ObjectOperation *o = (::ObjectOperation *)impl;
   ::set_op_flags(o, flags);
+}
+
+void librados::ObjectOperation::set_op_priority(int priority)
+{
+  ::ObjectOperation *o = (::ObjectOperation *)impl;
+  ::set_op_priority(o, priority);
 }
 
 void librados::ObjectOperation::cmpxattr(const char *name, uint8_t op, const bufferlist& v)

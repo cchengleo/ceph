@@ -605,7 +605,7 @@ void ObjectCacher::close_object(Object *ob)
 
 
 
-void ObjectCacher::bh_read(BufferHead *bh)
+void ObjectCacher::bh_read(BufferHead *bh, int op_priority)
 {
   assert(lock.is_locked());
   ldout(cct, 7) << "bh_read on " << *bh << " outstanding reads "
@@ -621,7 +621,7 @@ void ObjectCacher::bh_read(BufferHead *bh)
   writeback_handler.read(bh->ob->get_oid(), bh->ob->get_oloc(),
 			 bh->start(), bh->length(), bh->ob->get_snap(),
 			 &onfinish->bl, bh->ob->truncate_size, bh->ob->truncate_seq,
-			 onfinish);
+			 onfinish, op_priority);
 
   ++reads_outstanding;
 }
@@ -1016,13 +1016,14 @@ bool ObjectCacher::is_cached(ObjectSet *oset, vector<ObjectExtent>& extents, sna
  * returns # bytes read (if in cache).  onfinish is untouched (caller must delete it)
  * returns 0 if doing async read
  */
-int ObjectCacher::readx(OSDRead *rd, ObjectSet *oset, Context *onfinish)
+int ObjectCacher::readx(OSDRead *rd, ObjectSet *oset, Context *onfinish,
+                        int op_priority)
 {
-  return _readx(rd, oset, onfinish, true);
+  return _readx(rd, oset, onfinish, true, op_priority);
 }
 
 int ObjectCacher::_readx(OSDRead *rd, ObjectSet *oset, Context *onfinish,
-			 bool external_call)
+			 bool external_call, int op_priority)
 {
   assert(lock.is_locked());
   bool success = true;
@@ -1128,7 +1129,7 @@ int ObjectCacher::_readx(OSDRead *rd, ObjectSet *oset, Context *onfinish,
 	  bh_remove(o, bh_it->second);
 	  delete bh_it->second;
 	} else {
-	  bh_read(bh_it->second);
+	  bh_read(bh_it->second, op_priority);
 	  if (success && onfinish) {
 	    ldout(cct, 10) << "readx missed, waiting on " << *bh_it->second
 			   << " off " << bh_it->first << dendl;

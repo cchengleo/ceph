@@ -19,9 +19,10 @@ namespace librbd {
 
   CopyupRequest::CopyupRequest(ImageCtx *ictx, const std::string &oid,
                                uint64_t objectno,
-			       vector<pair<uint64_t,uint64_t> >& image_extents)
+                               vector<pair<uint64_t,uint64_t> >& image_extents,
+                               int op_priority)
     : m_ictx(ictx), m_oid(oid), m_object_no(objectno),
-      m_image_extents(image_extents)
+      m_image_extents(image_extents), m_op_priority(op_priority)
   {
   }
 
@@ -72,6 +73,7 @@ namespace librbd {
     snaps.insert(snaps.end(), snapc.snaps.begin(), snapc.snaps.end());
 
     librados::ObjectWriteOperation copyup_op;
+    copyup_op.set_op_priority(m_op_priority);
     copyup_op.exec("rbd", "copyup", m_copyup_data);
 
     librados::AioCompletion *comp =
@@ -91,7 +93,7 @@ namespace librbd {
                            << dendl;
 
     int r = aio_read(m_ictx->parent, m_image_extents, NULL, &m_copyup_data,
-		     comp, 0);
+		     comp, 0, m_op_priority);
     if (r < 0) {
       comp->release();
       delete this;

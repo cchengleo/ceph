@@ -93,13 +93,16 @@ namespace librbd {
 			     const object_locator_t& oloc,
 			     uint64_t off, uint64_t len, snapid_t snapid,
 			     bufferlist *pbl, uint64_t trunc_size,
-			     __u32 trunc_seq, Context *onfinish)
+			     __u32 trunc_seq, Context *onfinish, int op_priority)
   {
     // on completion, take the mutex and then call onfinish.
     Context *req = new C_Request(m_ictx->cct, onfinish, &m_lock);
     librados::AioCompletion *rados_completion =
       librados::Rados::aio_create_completion(req, context_cb, NULL);
     librados::ObjectReadOperation op;
+    if (op_priority)
+      op.set_op_priority(op_priority);
+    ldout(m_ictx->cct, 20) << __func__ << " set prority to " << op_priority << dendl;
     op.read(off, len, pbl, NULL);
     int flags = m_ictx->get_read_flags(snapid);
     int r = m_ictx->data_ctx.aio_operate(oid.name, rados_completion, &op,

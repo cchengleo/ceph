@@ -699,6 +699,7 @@ OPTION(rocksdb_info_log_level, OPT_STR, "info")  // info log level : debug , inf
 OPTION(osd_client_op_priority, OPT_U32, 63)
 OPTION(osd_recovery_op_priority, OPT_U32, 10)
 OPTION(osd_recovery_op_warn_multiple, OPT_U32, 16)
+OPTION(osd_client_flatten_op_priority, OPT_U32, 0) // set 0 as default to follow osd_client_op_priority
 
 // Max time to wait between notifying mon of shutdown and shutting down
 OPTION(osd_mon_shutdown_timeout, OPT_DOUBLE, 5)
