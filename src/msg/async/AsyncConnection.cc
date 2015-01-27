@@ -557,7 +557,8 @@ void AsyncConnection::process()
           ceph_msg_header_old oldheader;
           __u32 header_crc;
           int len;
-          if (has_feature(CEPH_FEATURE_NOSRCADDR))
+          if (has_feature(CEPH_FEATURE_NOSRCADDR) ||
+              has_feature(CEPH_FEATURE_MSG_COMPRESS))
             len = sizeof(header);
           else
             len = sizeof(oldheader);
@@ -572,7 +573,8 @@ void AsyncConnection::process()
 
           ldout(async_msgr->cct, 20) << __func__ << " got MSG header" << dendl;
 
-          if (has_feature(CEPH_FEATURE_NOSRCADDR)) {
+          if (has_feature(CEPH_FEATURE_NOSRCADDR) ||
+              has_feature(CEPH_FEATURE_MSG_COMPRESS)) {
             header = *((ceph_msg_header*)state_buffer);
             header_crc = ceph_crc32c(0, (unsigned char *)&header,
                                     sizeof(header) - sizeof(header.crc));
@@ -747,7 +749,7 @@ void AsyncConnection::process()
           ceph_msg_footer_old old_footer;
           int len;
           // footer
-          if (has_feature(CEPH_FEATURE_MSG_AUTH) || has_feature(CEPH_FEATURE_MSG_COMPRESS))
+          if (has_feature(CEPH_FEATURE_MSG_AUTH))
             len = sizeof(footer);
           else
             len = sizeof(old_footer);
@@ -760,7 +762,7 @@ void AsyncConnection::process()
             break;
           }
 
-          if (has_feature(CEPH_FEATURE_MSG_AUTH) || has_feature(CEPH_FEATURE_MSG_COMPRESS)) {
+          if (has_feature(CEPH_FEATURE_MSG_AUTH)) {
             footer = *((ceph_msg_footer*)state_buffer);
           } else {
             old_footer = *((ceph_msg_footer_old*)state_buffer);
@@ -2168,7 +2170,8 @@ int AsyncConnection::write_message(ceph_msg_header& header, ceph_msg_footer& foo
 
   // send envelope
   ceph_msg_header_old oldheader;
-  if (has_feature(CEPH_FEATURE_NOSRCADDR)) {
+  if (has_feature(CEPH_FEATURE_NOSRCADDR) ||
+      has_feature(CEPH_FEATURE_MSG_COMPRESS)) {
     bl.append((char*)&header, sizeof(header));
   } else {
     memcpy(&oldheader, &header, sizeof(header));
@@ -2186,7 +2189,7 @@ int AsyncConnection::write_message(ceph_msg_header& header, ceph_msg_footer& foo
   // send footer; if receiver doesn't support signatures and compression,
   // use the old footer format
   ceph_msg_footer_old old_footer;
-  if (has_feature(CEPH_FEATURE_MSG_AUTH) || has_feature(CEPH_FEATURE_MSG_COMPRESS)) {
+  if (has_feature(CEPH_FEATURE_MSG_AUTH)) {
     bl.append((char*)&footer, sizeof(footer));
   } else {
     old_footer.front_crc = footer.front_crc;
