@@ -54,12 +54,13 @@ struct ObjectOperation {
   vector<OSDOp> ops;
   int flags;
   int priority;
+  int compression;
 
   vector<bufferlist*> out_bl;
   vector<Context*> out_handler;
   vector<int*> out_rval;
 
-  ObjectOperation() : flags(0), priority(0) {}
+  ObjectOperation() : flags(0), priority(0), compression(false) {}
   ~ObjectOperation() {
     while (!out_handler.empty()) {
       delete out_handler.back();
@@ -74,6 +75,10 @@ struct ObjectOperation {
   void set_last_op_flags(int flags) {
     assert(!ops.empty());
     ops.rbegin()->op.flags = flags;
+  }
+
+  void set_op_compression(bool compression) {
+    this->compression = compression;
   }
 
   /**
@@ -1154,6 +1159,7 @@ public:
     vector<int*> out_rval;
 
     int priority;
+    bool compression;
     Context *onack, *oncommit, *ontimeout;
 
     ceph_tid_t tid;
@@ -1186,7 +1192,7 @@ public:
       con(NULL),
       snapid(CEPH_NOSNAP),
       outbl(NULL),
-      priority(0), onack(ac), oncommit(co),
+      priority(0), compression(false), onack(ac), oncommit(co),
       ontimeout(NULL),
       tid(0), attempts(0),
       objver(ov), reply_epoch(NULL),
@@ -2017,6 +2023,7 @@ public:
 	       Context *onack, Context *oncommit, version_t *objver = NULL) {
     Op *o = new Op(oid, oloc, op.ops, flags | global_op_flags.read() | CEPH_OSD_FLAG_WRITE, onack, oncommit, objver);
     o->priority = op.priority;
+    o->compression = op.compression;
     o->mtime = mtime;
     o->snapc = snapc;
     o->out_rval.swap(op.out_rval);
@@ -2035,6 +2042,7 @@ public:
 	     Context *onack, version_t *objver = NULL, int *data_offset = NULL) {
     Op *o = new Op(oid, oloc, op.ops, flags | global_op_flags.read() | CEPH_OSD_FLAG_READ, onack, NULL, objver, data_offset);
     o->priority = op.priority;
+    o->compression = op.compression;
     o->snapid = snapid;
     o->outbl = pbl;
     if (!o->outbl && op.size() == 1 && op.out_bl[0]->length())
@@ -2063,6 +2071,7 @@ public:
     o->target.precalc_pgid = true;
     o->target.base_pgid = pg_t(hash, oloc.pool);
     o->priority = op.priority;
+    o->compression = op.compression;
     o->snapid = CEPH_NOSNAP;
     o->outbl = pbl;
     o->out_bl.swap(op.out_bl);

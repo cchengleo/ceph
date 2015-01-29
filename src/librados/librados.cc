@@ -103,6 +103,11 @@ static void set_op_flags(::ObjectOperation *o, int flags)
   o->set_last_op_flags(rados_flags);
 }
 
+static void set_op_compression(::ObjectOperation *o, bool compression)
+{
+  o->set_op_compression(compression);
+}
+
 //deprcated
 void librados::ObjectOperation::set_op_flags(ObjectOperationFlags flags)
 {
@@ -114,6 +119,12 @@ void librados::ObjectOperation::set_op_flags2(int flags)
 {
   ::ObjectOperation *o = (::ObjectOperation *)impl;
   ::set_op_flags(o, flags);
+}
+
+void librados::ObjectOperation::set_op_compression(bool compression)
+{
+  ::ObjectOperation *o = (::ObjectOperation *)impl;
+  ::set_op_compression(o, compression);
 }
 
 void librados::ObjectOperation::cmpxattr(const char *name, uint8_t op, const bufferlist& v)
