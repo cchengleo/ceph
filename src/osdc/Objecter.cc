@@ -43,6 +43,7 @@
 #include "messages/MWatchNotify.h"
 
 #include <errno.h>
+#include <bitset>
 
 #include "common/config.h"
 #include "common/perf_counters.h"
@@ -2768,7 +2769,11 @@ MOSDOp *Objecter::_prepare_osd_op(Op *op)
     m->set_priority(cct->_conf->osd_client_op_priority);
 
   if (op->compression)
-    m->set_compression_flag(op->compression);
+    m->set_compression_flag(CEPH_MSG_HEADER_COMPRESS_FRONT |
+                            CEPH_MSG_HEADER_COMPRESS_MIDDLE |
+                            CEPH_MSG_HEADER_COMPRESS_DATA);
+  ldout(cct, 20) << "_prepare_osd_op set compression to "
+                 << std::bitset<8>(m->get_compression_flag()) << dendl;
 
   logger->inc(l_osdc_op_send);
   logger->inc(l_osdc_op_send_bytes, m->get_data().length());

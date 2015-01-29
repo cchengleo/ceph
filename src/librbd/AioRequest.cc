@@ -23,16 +23,16 @@ namespace librbd {
     m_ictx(NULL), m_ioctx(NULL),
     m_object_no(0), m_object_off(0), m_object_len(0),
     m_snap_id(CEPH_NOSNAP), m_completion(NULL), m_parent_completion(NULL),
-    m_hide_enoent(false) {}
+    m_hide_enoent(false), m_op_compression(false) {}
   AioRequest::AioRequest(ImageCtx *ictx, const std::string &oid,
 			 uint64_t objectno, uint64_t off, uint64_t len,
 			 const ::SnapContext &snapc, librados::snap_t snap_id,
 			 Context *completion,
-			 bool hide_enoent) :
+			 bool hide_enoent, bool op_compression) :
     m_ictx(ictx), m_ioctx(&ictx->data_ctx), m_oid(oid), m_object_no(objectno),
     m_object_off(off), m_object_len(len), m_snap_id(snap_id),
     m_completion(completion), m_parent_completion(NULL),
-    m_hide_enoent(hide_enoent) {
+    m_hide_enoent(hide_enoent), m_op_compression(op_compression) {
     m_snaps.insert(m_snaps.end(), snapc.snaps.begin(), snapc.snaps.end());
   }
 
@@ -52,7 +52,7 @@ namespace librbd {
 			   << " extents " << image_extents
 			   << dendl;
     aio_read(m_ictx->parent, image_extents, NULL, &m_read_data,
-	     m_parent_completion, 0);
+	     m_parent_completion, 0, m_op_compression);
   }
 
   static inline bool is_copy_on_read(ImageCtx *ictx, librados::snap_t snap_id) {
@@ -68,9 +68,9 @@ namespace librbd {
                    vector<pair<uint64_t,uint64_t> >& be,
                    const ::SnapContext &snapc,
                    librados::snap_t snap_id, bool sparse,
-                   Context *completion, int op_flags)
+                   Context *completion, int op_flags, bool op_compression)
     : AioRequest(ictx, oid, objectno, offset, len, snapc, snap_id, completion,
-		 false),
+		 false, op_compression),
       m_buffer_extents(be), m_tried_parent(false),
       m_sparse(sparse), m_op_flags(op_flags), m_state(LIBRBD_AIO_READ_FLAT) {
     RWLock::RLocker l(m_ictx->snap_lock);
@@ -173,7 +173,8 @@ namespace librbd {
             // create and kick off a CopyupRequest
             CopyupRequest *new_req = new CopyupRequest(m_ictx, m_oid,
                                                        m_object_no,
-						       m_image_extents);
+						       m_image_extents,
+                                                       m_op_compression);
             m_ictx->copyup_list[m_object_no] = new_req;
             new_req->queue_read_from_parent();
           }
@@ -207,6 +208,7 @@ namespace librbd {
       op.read(m_object_off, m_object_len, &m_read_data, NULL);
     }
     op.set_op_flags2(m_op_flags);
+    op.set_op_compression(m_op_compression);
 
     r = m_ioctx->aio_operate(m_oid, rados_completion, &op, flags, NULL);
 
@@ -226,13 +228,18 @@ namespace librbd {
 			       uint64_t object_overlap,
 			       const ::SnapContext &snapc, librados::snap_t snap_id,
 			       Context *completion,
-			       bool hide_enoent)
+			       bool hide_enoent, bool op_compression)       
     : AioRequest(ictx, oid, object_no, object_off, len, snapc, snap_id, 
-                 completion, hide_enoent),
+                 completion, hide_enoent, op_compression),
       m_state(LIBRBD_AIO_WRITE_FLAT), m_snap_seq(snapc.seq.val), m_entire_object(NULL)
   {
     m_object_image_extents = objectx;
     m_parent_overlap = object_overlap;
+
+    if (op_compression) {
+      m_write.set_op_compression(op_compression);
+      m_copyup.set_op_compression(op_compression);
+    }
   }
 
   void AbstractWrite::guard_write()
@@ -296,7 +303,8 @@ namespace librbd {
               // If it is not in the list, create a CopyupRequest and wait for it.
               CopyupRequest *new_req = new CopyupRequest(m_ictx, m_oid,
                                                          m_object_no,
-							 m_object_image_extents);
+							 m_object_image_extents,
+                                                         m_op_compression);
               // make sure to wait on this CopyupRequest
               new_req->append_request(this);
               m_ictx->copyup_list[m_object_no] = new_req;

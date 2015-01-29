@@ -19,9 +19,10 @@ namespace librbd {
 
   CopyupRequest::CopyupRequest(ImageCtx *ictx, const std::string &oid,
                                uint64_t objectno,
-			       vector<pair<uint64_t,uint64_t> >& image_extents)
+			       vector<pair<uint64_t,uint64_t> >& image_extents,
+                               bool op_compression)
     : m_ictx(ictx), m_oid(oid), m_object_no(objectno),
-      m_image_extents(image_extents)
+      m_image_extents(image_extents), m_op_compression(op_compression)
   {
   }
 
@@ -91,7 +92,7 @@ namespace librbd {
                            << dendl;
 
     int r = aio_read(m_ictx->parent, m_image_extents, NULL, &m_copyup_data,
-		     comp, 0);
+		     comp, 0, true);
     if (r < 0) {
       comp->release();
       delete this;
