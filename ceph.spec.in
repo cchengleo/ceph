@@ -56,6 +56,7 @@ BuildRequires:	boost-devel
 BuildRequires:  bzip2-devel
 %endif
 BuildRequires:	cryptsetup
+BuildRequires: lz4-devel
 BuildRequires:	gdbm
 BuildRequires:	hdparm
 BuildRequires:	libaio-devel
