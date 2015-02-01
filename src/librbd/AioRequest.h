@@ -31,7 +31,7 @@ namespace librbd {
     AioRequest(ImageCtx *ictx, const std::string &oid,
                uint64_t objectno, uint64_t off, uint64_t len,
                const ::SnapContext &snapc, librados::snap_t snap_id,
-               Context *completion, bool hide_enoent);
+               Context *completion, bool hide_enoent, int op_priority);
     virtual ~AioRequest();
 
     void complete(int r)
@@ -59,6 +59,7 @@ namespace librbd {
     ceph::bufferlist m_read_data;
     bool m_hide_enoent;
     std::vector<librados::snap_t> m_snaps;
+    int m_op_priority;
   };
 
   class AioRead : public AioRequest {
@@ -67,7 +68,7 @@ namespace librbd {
 	    uint64_t objectno, uint64_t offset, uint64_t len,
 	    vector<pair<uint64_t,uint64_t> >& be, const ::SnapContext &snapc,
 	    librados::snap_t snap_id, bool sparse,
-	    Context *completion, int op_flags);
+	    Context *completion, int op_flags, int op_priority = 0);
     virtual ~AioRead() {}
     virtual bool should_complete(int r);
     virtual int send();
@@ -126,7 +127,7 @@ namespace librbd {
 		  const ::SnapContext &snapc,
 		  librados::snap_t snap_id,
 		  Context *completion,
-		  bool hide_enoent);
+		  bool hide_enoent, int op_priority = 0);
     virtual ~AbstractWrite() {}
     virtual bool should_complete(int r);
     virtual int send();
@@ -207,12 +208,12 @@ namespace librbd {
 	     vector<pair<uint64_t,uint64_t> >& objectx, uint64_t object_overlap,
 	     const ceph::bufferlist &data, const ::SnapContext &snapc,
 	     librados::snap_t snap_id,
-	     Context *completion)
+	     Context *completion, int op_priority = 0)
       : AbstractWrite(ictx, oid,
 		      object_no, object_off, data.length(),
 		      objectx, object_overlap,
 		      snapc, snap_id,
-		      completion, false),
+		      completion, false, op_priority),
 	m_write_data(data), m_op_flags(0) {
     }
     virtual ~AioWrite() {}

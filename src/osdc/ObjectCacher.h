@@ -438,7 +438,7 @@ class ObjectCacher {
   void bh_remove(Object *ob, BufferHead *bh);
 
   // io
-  void bh_read(BufferHead *bh);
+  void bh_read(BufferHead *bh, int op_priority);
   void bh_write(BufferHead *bh);
 
   void trim();
@@ -463,7 +463,7 @@ class ObjectCacher {
   Cond read_cond;
 
   int _readx(OSDRead *rd, ObjectSet *oset, Context *onfinish,
-	     bool external_call);
+	     bool external_call, int op_priority = 0);
   void retry_waiting_reads();
 
  public:
@@ -586,7 +586,7 @@ class ObjectCacher {
    * @note total read size must be <= INT_MAX, since
    * the return value is total bytes read
    */
-  int readx(OSDRead *rd, ObjectSet *oset, Context *onfinish);
+  int readx(OSDRead *rd, ObjectSet *oset, Context *onfinish, int op_priority = 0);
   int writex(OSDWrite *wr, ObjectSet *oset, Mutex& wait_on_lock,
 	     Context *onfreespace);
   bool is_cached(ObjectSet *oset, vector<ObjectExtent>& extents, snapid_t snapid);

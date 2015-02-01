@@ -101,7 +101,7 @@ int SimpleMessenger::_send_message(Message *m, const entity_inst_t& dest)
   ldout(cct,1) <<"--> " << dest.name << " "
           << dest.addr << " -- " << *m
     	  << " -- ?+" << m->get_data().length()
-	  << " " << m 
+	  << " " << m << " @" << m->get_priority()
 	  << dendl;
 
   if (dest.addr == entity_addr_t()) {
@@ -129,7 +129,7 @@ int SimpleMessenger::_send_message(Message *m, Connection *con)
   ldout(cct,1) << "--> " << con->get_peer_addr()
       << " -- " << *m
       << " -- ?+" << m->get_data().length()
-      << " " << m << " con " << con
+      << " " << m << " con " << con << " @" << m->get_priority()
       << dendl;
 
   submit_message(m, static_cast<PipeConnection*>(con),

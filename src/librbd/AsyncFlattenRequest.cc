@@ -67,7 +67,7 @@ public:
     string oid = m_image_ctx.get_object_name(m_object_no);
     AioWrite *req = new AioWrite(&m_image_ctx, oid, m_object_no, 0, objectx,
                                  object_overlap, bl, m_snapc, CEPH_NOSNAP,
-                                 this);
+                                 this, m_image_ctx.cct->_conf->osd_client_flatten_op_priority);
     int r = req->send();
     assert(r == 0);
     return 0;
