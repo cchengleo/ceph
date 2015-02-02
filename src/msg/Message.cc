@@ -272,22 +272,28 @@ void Message::compress(int crcflags, ceph_msg_header &header, ceph_msg_footer& f
                    CEPH_MSG_HEADER_COMPRESS_DATA;
 
   if ((header.flags & CEPH_MSG_HEADER_COMPRESS_FRONT) != 0 &&
-      this->payload.length() > 0)
+      this->payload.length() > 4096) {
     _compress_encode(this->payload, front);
-  else
+  } else {
     header.flags &= ~CEPH_MSG_HEADER_COMPRESS_FRONT;
+    front = this->payload;
+  }
 
   if ((header.flags & CEPH_MSG_HEADER_COMPRESS_MIDDLE) != 0 &&
-      this->middle.length() > 0)
+      this->middle.length() > 4096) {
     _compress_encode(this->middle, middle);
-  else
+  } else {
     header.flags &= ~CEPH_MSG_HEADER_COMPRESS_MIDDLE;
+    middle = this->middle;
+  }
 
   if ((header.flags & CEPH_MSG_HEADER_COMPRESS_DATA) != 0 &&
-      this->data.length() > 0)
+      this->data.length() > 4096) {
     _compress_encode(this->data, data);
-  else
+  } else {
     header.flags &= ~CEPH_MSG_HEADER_COMPRESS_DATA;
+    data = this->data;
+  }
 
   if (crcflags & MSG_CRC_HEADER) {
     footer.front_crc = front.crc32c(0);
