@@ -76,6 +76,10 @@ struct ObjectOperation {
     ops.rbegin()->op.flags = flags;
   }
 
+  void set_op_priority(int new_priority) {
+    priority = new_priority;
+  }
+
   /**
    * This is a more limited form of C_Contexts, but that requires
    * a ceph_context which we don't have here.

@@ -31,7 +31,7 @@ namespace librbd {
     AioRequest(ImageCtx *ictx, const std::string &oid,
                uint64_t objectno, uint64_t off, uint64_t len,
                const ::SnapContext &snapc, librados::snap_t snap_id,
-               Context *completion, bool hide_enoent);
+               Context *completion, bool hide_enoent, int op_priority);
     virtual ~AioRequest();
 
     void complete(int r)
@@ -59,6 +59,7 @@ namespace librbd {
     ceph::bufferlist m_read_data;
     bool m_hide_enoent;
     std::vector<librados::snap_t> m_snaps;
+    int m_op_priority;
   };
 
   class AioRead : public AioRequest {
@@ -67,7 +68,7 @@ namespace librbd {
 	    uint64_t objectno, uint64_t offset, uint64_t len,
 	    vector<pair<uint64_t,uint64_t> >& be, const ::SnapContext &snapc,
 	    librados::snap_t snap_id, bool sparse,
-	    Context *completion, int op_flags);
+	    Context *completion, int op_flags, int op_priority = 0);
     virtual ~AioRead() {}
     virtual bool should_complete(int r);
     virtual int send();

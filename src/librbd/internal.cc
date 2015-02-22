@@ -3520,7 +3520,7 @@ reprotect_and_return_err:
   }
 
   int aio_read(ImageCtx *ictx, const vector<pair<uint64_t,uint64_t> >& image_extents,
-	       char *buf, bufferlist *pbl, AioCompletion *c, int op_flags, bool bypass_cache)
+	       char *buf, bufferlist *pbl, AioCompletion *c, int op_flags, bool bypass_cache, int op_priority)
   {
     ldout(ictx->cct, 20) << "aio_read " << ictx << " completion " << c << " " << image_extents << dendl;
 
@@ -3578,7 +3578,7 @@ reprotect_and_return_err:
 	AioRead *req = new AioRead(ictx, q->oid.name, 
 				   q->objectno, q->offset, q->length,
 				   q->buffer_extents, snapc,
-				   snap_id, true, req_comp, op_flags);
+				   snap_id, true, req_comp, op_flags, op_priority);
 	req_comp->set_req(req);
 	c->add_request();
 
@@ -3586,7 +3586,7 @@ reprotect_and_return_err:
 	  C_CacheRead *cache_comp = new C_CacheRead(req);
 	  ictx->aio_read_from_cache(q->oid, q->objectno, &req->data(),
 				    q->length, q->offset,
-				    cache_comp, op_flags);
+				    cache_comp, op_flags, op_priority);
 	} else {
 	  r = req->send();
 	  if (r == -ENOENT)

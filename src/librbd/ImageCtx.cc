@@ -512,7 +512,7 @@ namespace librbd {
   void ImageCtx::aio_read_from_cache(object_t o, uint64_t object_no,
 				     bufferlist *bl, size_t len,
 				     uint64_t off, Context *onfinish,
-				     int fadvise_flags) {
+				     int fadvise_flags, int op_priority) {
     snap_lock.get_read();
     ObjectCacher::OSDRead *rd = object_cacher->prepare_read(snap_id, bl, fadvise_flags);
     snap_lock.put_read();
@@ -521,7 +521,7 @@ namespace librbd {
     extent.buffer_extents.push_back(make_pair(0, len));
     rd->extents.push_back(extent);
     cache_lock.Lock();
-    int r = object_cacher->readx(rd, object_set, onfinish);
+    int r = object_cacher->readx(rd, object_set, onfinish, op_priority);
     cache_lock.Unlock();
     if (r != 0)
       onfinish->complete(r);
