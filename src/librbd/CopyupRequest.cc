@@ -92,7 +92,7 @@ namespace librbd {
                            << ", extents " << m_image_extents
                            << dendl;
     int r = aio_read(m_ictx->parent, m_image_extents, NULL, &m_copyup_data,
-		     comp, 0);
+		     comp, 0, true);
     if (r < 0) {
       comp->release();
 
