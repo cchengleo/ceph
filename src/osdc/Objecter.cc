@@ -2776,6 +2776,8 @@ MOSDOp *Objecter::_prepare_osd_op(Op *op)
   else
     m->set_priority(cct->_conf->osd_client_op_priority);
 
+  ldout(cct, 20) << "_prepare_osd_op set priority to " << m->get_priority() << dendl;
+
   logger->inc(l_osdc_op_send);
   logger->inc(l_osdc_op_send_bytes, m->get_data().length());
 

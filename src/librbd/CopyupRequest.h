@@ -17,7 +17,8 @@ namespace librbd {
   class CopyupRequest {
   public:
     CopyupRequest(ImageCtx *ictx, const std::string &oid, uint64_t objectno,
-                  vector<pair<uint64_t,uint64_t> >& image_extents);
+                  vector<pair<uint64_t,uint64_t> >& image_extents,
+                  int op_priority);
     ~CopyupRequest();
 
     ceph::bufferlist& get_copyup_data();
@@ -54,6 +55,7 @@ namespace librbd {
     State m_state;
     ceph::bufferlist m_copyup_data;
     vector<AioRequest *> m_pending_requests;
+    int m_op_priority;
 
     AsyncOperation m_async_op;
 

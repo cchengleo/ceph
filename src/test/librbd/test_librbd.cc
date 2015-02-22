@@ -1437,9 +1437,9 @@ TEST_F(TestLibRBD, TestCoR)
 
   int features = RBD_FEATURE_LAYERING;
   rbd_image_t parent, child;
-  int order = 12; // smallest object size is 4K
-  const uint64_t image_size = 4<<20;
-  const int object_size = 1<<12;
+  int order = 22; // smallest object size is 4K
+  const uint64_t image_size = 4<<28;
+  const int object_size = 1<<22;
   const int object_num = image_size / object_size;
   map<uint64_t, uint64_t> write_tracker;
   set<string> obj_checker;
