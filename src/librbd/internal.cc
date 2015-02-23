@@ -3325,6 +3325,7 @@ reprotect_and_return_err:
 	AioWrite *req = new AioWrite(ictx, p->oid.name, p->objectno, p->offset,
 				     objectx, object_overlap,
 				     bl, snapc, snap_id, req_comp);
+	ictx->record_access(p->objectno);
 	c->add_request();
 
 	req->set_op_flags(op_flags);
@@ -3579,6 +3580,9 @@ reprotect_and_return_err:
 				   q->objectno, q->offset, q->length,
 				   q->buffer_extents, snapc,
 				   snap_id, true, req_comp, op_flags);
+	// record in access_map
+	ictx->record_access(q->objectno);
+
 	req_comp->set_req(req);
 	c->add_request();
 

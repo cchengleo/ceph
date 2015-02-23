@@ -50,6 +50,7 @@ namespace librbd {
       object_map_lock("librbd::ImageCtx::object_map_lock"),
       async_ops_lock("librbd::ImageCtx::async_ops_lock"),
       copyup_list_lock("librbd::ImageCtx::copyup_list_lock"),
+      access_list_lock("librbd::ImageCtx::access_list_lock"),
       extra_read_flags(0),
       old_format(true),
       order(0), size(0), features(0),
@@ -709,5 +710,17 @@ namespace librbd {
     ldout(cct, 20) << "flush async operations: " << on_finish << " "
                    << "count=" << async_ops.size() << dendl;
     async_ops.back()->add_flush_context(on_finish);
+  }
+
+  void ImageCtx::record_access(uint64_t objectno) {
+    // record in access_map
+    if (!read_only) {
+      Mutex::Locker access_locker(access_list_lock);
+      std::vector<uint64_t>::iterator it = std::find(access_list.begin(),
+                                                     access_list.end(),
+                                                     objectno);
+      if (it == access_list.end())
+        access_list.push_back(objectno);
+    }
   }
 }
