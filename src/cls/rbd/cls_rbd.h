@@ -64,6 +64,7 @@ struct cls_rbd_snap {
   uint8_t protection_status;
   cls_rbd_parent parent;
   uint64_t flags;
+  std::vector<uint64_t> access_list;
 
   /// true if we have a parent
   bool has_parent() const {
@@ -83,6 +84,7 @@ struct cls_rbd_snap {
     ::encode(parent, bl);
     ::encode(protection_status, bl);
     ::encode(flags, bl);
+    ::encode(access_list, bl);
     ENCODE_FINISH(bl);
   }
   void decode(bufferlist::iterator& p) {
@@ -100,6 +102,7 @@ struct cls_rbd_snap {
     if (struct_v >= 4) {
       ::decode(flags, p);
     }
+    ::decode(access_list, p);
     DECODE_FINISH(p);
   }
   void dump(Formatter *f) const {

@@ -2115,7 +2115,7 @@ int object_map_update(cls_method_context_t hctx, bufferlist *in, bufferlist *out
  * Get a rbd image's access list
  *
  * Input:
- * none
+ * @param snap_id which snapshot to query, or CEPH_NOSNAP (
  *
  * Output:
  * @param access list
@@ -2123,35 +2123,39 @@ int object_map_update(cls_method_context_t hctx, bufferlist *in, bufferlist *out
  */
 int get_access_list(cls_method_context_t hctx, bufferlist *in, bufferlist *out)
 {
-  uint64_t size;
-  int r = cls_cxx_stat(hctx, &size, NULL);
-  if (r < 0)
-    return r;
-
-  bufferlist bl;
-  r = cls_cxx_read(hctx, 0, size, &bl);
-  if (r < 0) {
-    CLS_ERR("get_access_list: could not get access_list: %d", r);
-    return r;
-  }
-
-  std::vector<uint64_t> access_list;
-
-  bufferlist::iterator iter = bl.begin();
+  snapid_t snap_id;
+  bufferlist::iterator iter = in->begin();
   try {
-    ::decode(access_list, iter);
+    ::decode(snap_id, iter);
   } catch (const buffer::error &err) {
-    CLS_ERR("failed to decode access list: %s", err.what());
     return -EINVAL;
   }
 
+  CLS_LOG(20, "get_access_list snap_id=%llu", (unsigned long long)snap_id);
+
+  cls_rbd_snap snap;
+  if (snap_id == CEPH_NOSNAP) {
+    int r = read_key(hctx, "access_list", &snap.access_list);
+    if (r < 0 && r != -ENOENT) {
+      CLS_ERR("failed to read the access list off of disk: %s",
+              cpp_strerror(r).c_str());
+      return r;
+    }
+  } else {
+    string snapshot_key;
+    key_from_snap_id(snap_id, &snapshot_key);
+    int r = read_key(hctx, snapshot_key, &snap);
+    if (r < 0 && r != -ENOENT)
+      return r;
+  }
+
   CLS_ERR("get_access_list:");
-  for (std::vector<uint64_t>::iterator it = access_list.begin();
-    it != access_list.end(); ++it) {
+  for (std::vector<uint64_t>::iterator it = snap.access_list.begin();
+       it != snap.access_list.end(); ++it) {
     CLS_ERR("%lu", *it);
   }
 
-  ::encode(access_list, *out);
+  ::encode(snap.access_list, *out);
   return 0;
 }
 
@@ -2188,7 +2192,7 @@ int set_access_list(cls_method_context_t hctx, bufferlist *in, bufferlist *out)
   bufferlist bl;
   ::encode(access_list, bl);
 
-  return cls_cxx_write(hctx, 0, bl.length(), &bl);
+  return cls_cxx_map_set_val(hctx, "access_list", &bl);
 }
 
 /****************************** Old format *******************************/

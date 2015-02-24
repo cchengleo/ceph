@@ -750,22 +750,37 @@ namespace librbd {
     }
 
     int get_access_list(librados::IoCtx *ioctx, const std::string &oid,
-                         std::vector<uint64_t> *access_list)
+                        snapid_t snap_id, std::vector<uint64_t> *access_list)
     {
-      bufferlist in;
-      bufferlist out;
-      int r = ioctx->exec(oid, "rbd", "get_access_list", in, out);
-      if (r < 0) {
-        return r;
-      }
+      bufferlist inbl, outbl;
+      ::encode(snap_id, inbl);
+
+      int r = ioctx->exec(oid, "rbd", "get_access_list", inbl, outbl);
+      if (r < 0)
+	return r;
 
       try {
-        bufferlist::iterator iter = out.begin();
-        ::decode(*access_list, iter);
+	bufferlist::iterator iter = outbl.begin();
+	::decode(*access_list, iter);
       } catch (const buffer::error &err) {
-        return -EBADMSG;
+	return -EBADMSG;
       }
+
       return 0;
+//    bufferlist in;
+//    bufferlist out;
+//    int r = ioctx->exec(oid, "rbd", "get_access_list", in, out);
+//    if (r < 0) {
+//      return r;
+//    }
+//
+//    try {
+//      bufferlist::iterator iter = out.begin();
+//      ::decode(*access_list, iter);
+//    } catch (const buffer::error &err) {
+//      return -EBADMSG;
+//    }
+//    return 0;
     }
 
     int set_access_list(librados::IoCtx *ioctx, const std::string &oid,

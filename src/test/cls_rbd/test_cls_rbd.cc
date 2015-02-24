@@ -1072,14 +1072,14 @@ TEST_F(TestClsRbd, access_list)
   librados::IoCtx ioctx;
   ASSERT_EQ(0, _rados.ioctx_create(_pool_name.c_str(), ioctx));
 
-  uint64_t size = 20ULL << 30;
+  uint64_t size = 20ULL << 29;
   uint8_t order = 22;
   uint64_t num_objs = size / (1ULL << order);
 
   string oid = get_temp_image_name();
   ASSERT_EQ(0, create_image(&ioctx, oid, size, order, 0, oid));
 
-  vector<uint64_t> invec(50);
+  vector<uint64_t> invec(num_objs);
   { // construct a bufferlist similar to the one passed as image_index
     invec[0] = 1;
     invec[49] = 2;
@@ -1088,7 +1088,7 @@ TEST_F(TestClsRbd, access_list)
   ASSERT_EQ(0, set_access_list(&ioctx, oid, invec));
 
   vector<uint64_t> outvec;
-  ASSERT_EQ(0, get_access_list(&ioctx, oid, &outvec));
+  ASSERT_EQ(0, get_access_list(&ioctx, oid, CEPH_NOSNAP, &outvec));
 
   ASSERT_TRUE(outvec == invec);
 

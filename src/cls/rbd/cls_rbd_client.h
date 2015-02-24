@@ -119,7 +119,7 @@ namespace librbd {
 			   uint8_t new_object_state,
 			   const boost::optional<uint8_t> &current_object_state);
     int get_access_list(librados::IoCtx *ioctx, const std::string &oid,
-                        std::vector<uint64_t> *access_list);
+                        snapid_t snap_id, std::vector<uint64_t> *access_list);
     int set_access_list(librados::IoCtx *ioctx, const std::string &oid,
                         std::vector<uint64_t> &access_list);
 
