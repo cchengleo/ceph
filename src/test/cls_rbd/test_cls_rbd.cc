@@ -54,6 +54,8 @@ using ::librbd::cls_client::object_map_resize;
 using ::librbd::cls_client::object_map_update;
 using ::librbd::cls_client::get_flags;
 using ::librbd::cls_client::set_flags;
+using ::librbd::cls_client::get_access_list;
+using ::librbd::cls_client::set_access_list;
 
 static char *random_buf(size_t len)
 {
@@ -1061,6 +1063,34 @@ TEST_F(TestClsRbd, flags)
   ASSERT_EQ(6U, flags);
   ASSERT_EQ(snap_ids.size(), snap_flags.size());
   ASSERT_EQ(2U, snap_flags[0]);
+
+  ioctx.close();
+}
+
+TEST_F(TestClsRbd, access_list)
+{
+  librados::IoCtx ioctx;
+  ASSERT_EQ(0, _rados.ioctx_create(_pool_name.c_str(), ioctx));
+
+  uint64_t size = 20ULL << 30;
+  uint8_t order = 22;
+  uint64_t num_objs = size / (1ULL << order);
+
+  string oid = get_temp_image_name();
+  ASSERT_EQ(0, create_image(&ioctx, oid, size, order, 0, oid));
+
+  vector<uint64_t> invec(50);
+  { // construct a bufferlist similar to the one passed as image_index
+    invec[0] = 1;
+    invec[49] = 2;
+  }
+
+  ASSERT_EQ(0, set_access_list(&ioctx, oid, invec));
+
+  vector<uint64_t> outvec;
+  ASSERT_EQ(0, get_access_list(&ioctx, oid, &outvec));
+
+  ASSERT_TRUE(outvec == invec);
 
   ioctx.close();
 }

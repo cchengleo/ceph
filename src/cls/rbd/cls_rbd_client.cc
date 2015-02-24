@@ -749,5 +749,33 @@ namespace librbd {
       rados_op->exec("rbd", "object_map_update", in);
     }
 
+    int get_access_list(librados::IoCtx *ioctx, const std::string &oid,
+                         std::vector<uint64_t> *access_list)
+    {
+      bufferlist in;
+      bufferlist out;
+      int r = ioctx->exec(oid, "rbd", "get_access_list", in, out);
+      if (r < 0) {
+        return r;
+      }
+
+      try {
+        bufferlist::iterator iter = out.begin();
+        ::decode(*access_list, iter);
+      } catch (const buffer::error &err) {
+        return -EBADMSG;
+      }
+      return 0;
+    }
+
+    int set_access_list(librados::IoCtx *ioctx, const std::string &oid,
+                        std::vector<uint64_t> &access_list) {
+      bufferlist in;
+      bufferlist out;
+      ::encode(access_list, in);
+
+      return ioctx->exec(oid, "rbd", "set_access_list", in, out);
+    }
+
   } // namespace cls_client
 } // namespace librbd

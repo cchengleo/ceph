@@ -96,6 +96,8 @@ cls_method_handle_t h_dir_rename_image;
 cls_method_handle_t h_object_map_load;
 cls_method_handle_t h_object_map_resize;
 cls_method_handle_t h_object_map_update;
+cls_method_handle_t h_get_access_list;
+cls_method_handle_t h_set_access_list;
 cls_method_handle_t h_old_snapshots_list;
 cls_method_handle_t h_old_snapshot_add;
 cls_method_handle_t h_old_snapshot_remove;
@@ -2109,6 +2111,86 @@ int object_map_update(cls_method_context_t hctx, bufferlist *in, bufferlist *out
   return r;
 }
 
+/**
+ * Get a rbd image's access list
+ *
+ * Input:
+ * none
+ *
+ * Output:
+ * @param access list
+ * @returns 0 on success, negative error code on failure
+ */
+int get_access_list(cls_method_context_t hctx, bufferlist *in, bufferlist *out)
+{
+  uint64_t size;
+  int r = cls_cxx_stat(hctx, &size, NULL);
+  if (r < 0)
+    return r;
+
+  bufferlist bl;
+  r = cls_cxx_read(hctx, 0, size, &bl);
+  if (r < 0) {
+    CLS_ERR("get_access_list: could not get access_list: %d", r);
+    return r;
+  }
+
+  std::vector<uint64_t> access_list;
+
+  bufferlist::iterator iter = bl.begin();
+  try {
+    ::decode(access_list, iter);
+  } catch (const buffer::error &err) {
+    CLS_ERR("failed to decode access list: %s", err.what());
+    return -EINVAL;
+  }
+
+  CLS_ERR("get_access_list:");
+  for (std::vector<uint64_t>::iterator it = access_list.begin();
+    it != access_list.end(); ++it) {
+    CLS_ERR("%lu", *it);
+  }
+
+  ::encode(access_list, *out);
+  return 0;
+}
+
+/**
+ * Set a rbd image's access list
+ *
+ * Input:
+ * @param access_list the image access list
+ *
+ * Output:
+ * @returns 0 on success, negative error code on failure
+ */
+int set_access_list(cls_method_context_t hctx, bufferlist *in, bufferlist *out)
+{
+  std::vector<uint64_t> access_list;
+  bufferlist::iterator iter = in->begin();
+  try {
+    ::decode(access_list, iter);
+  } catch (const buffer::error &err) {
+    return -EINVAL;
+  }
+
+  int r = check_exists(hctx);
+  if (r < 0)
+    return r;
+
+  CLS_LOG(20, "set_access_list");
+  CLS_ERR("set_access_list:");
+  for (std::vector<uint64_t>::iterator it = access_list.begin();
+    it != access_list.end(); ++it) {
+    CLS_ERR("%lu", *it);
+  }
+
+  bufferlist bl;
+  ::encode(access_list, bl);
+
+  return cls_cxx_write(hctx, 0, bl.length(), &bl);
+}
+
 /****************************** Old format *******************************/
 
 int old_snapshots_list(cls_method_context_t hctx, bufferlist *in, bufferlist *out)
@@ -2420,6 +2502,12 @@ void __cls_init()
   cls_register_cxx_method(h_class, "object_map_update",
                           CLS_METHOD_RD | CLS_METHOD_WR,
 			  object_map_update, &h_object_map_update);
+  cls_register_cxx_method(h_class, "get_access_list",
+                          CLS_METHOD_RD,
+                          get_access_list, &h_get_access_list);
+  cls_register_cxx_method(h_class, "set_access_list",
+                          CLS_METHOD_RD | CLS_METHOD_WR,
+                          set_access_list, &h_set_access_list);
 
   /* methods for the old format */
   cls_register_cxx_method(h_class, "snap_list",

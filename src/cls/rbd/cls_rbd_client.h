@@ -118,6 +118,10 @@ namespace librbd {
 			   uint64_t start_object_no, uint64_t end_object_no,
 			   uint8_t new_object_state,
 			   const boost::optional<uint8_t> &current_object_state);
+    int get_access_list(librados::IoCtx *ioctx, const std::string &oid,
+                        std::vector<uint64_t> *access_list);
+    int set_access_list(librados::IoCtx *ioctx, const std::string &oid,
+                        std::vector<uint64_t> &access_list);
 
     // class operations on the old format, kept for
     // backwards compatability
