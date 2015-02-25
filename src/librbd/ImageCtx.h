@@ -83,6 +83,7 @@ namespace librbd {
     RWLock object_map_lock; // protects object map updates
     Mutex async_ops_lock; // protects async_ops
     Mutex copyup_list_lock; // protects copyup_waiting_list
+    Mutex access_list_lock; // protects access_list
 
     unsigned extra_read_flags;
 
@@ -110,6 +111,7 @@ namespace librbd {
 
     Finisher *copyup_finisher;
     std::map<uint64_t, CopyupRequest*> copyup_list;
+    std::vector<uint64_t> access_list;
 
     xlist<AsyncOperation*> async_ops;
 
@@ -187,6 +189,7 @@ namespace librbd {
 
     void flush_async_operations();
     void flush_async_operations(Context *on_finish);
+    void record_access(uint64_t objectno);
   };
 }
 

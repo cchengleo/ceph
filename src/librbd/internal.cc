@@ -1067,6 +1067,7 @@ reprotect_and_return_err:
     ImageCtx *c_imctx = NULL;
     // make sure parent snapshot exists
     ImageCtx *p_imctx = new ImageCtx(p_name, "", p_snap_name, p_ioctx, true);
+    std::vector<uint64_t> p_access_list, outvec;
     r = open_image(p_imctx);
     if (r < 0) {
       lderr(cct) << "error opening parent image: "
@@ -1146,6 +1147,24 @@ reprotect_and_return_err:
       // we lost the race with unprotect
       r = -EINVAL;
       goto err_remove_child;
+    }
+
+
+    // inherit parent's access list
+    r = cls_client::get_access_list(&p_imctx->md_ctx, p_imctx->header_oid, CEPH_NOSNAP, &p_access_list);
+    if ((r == 0) && !p_access_list.empty()) {
+      if (cls_client::set_access_list(&c_imctx->md_ctx, c_imctx->header_oid, p_access_list) < 0)
+        lderr(cct) << "couldn't set access list" << dendl;
+
+      {
+        if (cls_client::get_access_list(&c_imctx->md_ctx, c_imctx->header_oid, CEPH_NOSNAP, &outvec) < 0)
+          lderr(cct) << "couldn't get access list" << dendl;
+
+        ldout(cct, 20) << "access list from child's header:" << dendl;
+        for (std::vector<uint64_t>::iterator it = outvec.begin();
+             it != outvec.end(); ++it)
+          ldout(cct, 20) << "  " << *it << dendl;
+      }
     }
 
     ldout(cct, 2) << "done." << dendl;
@@ -2433,6 +2452,24 @@ reprotect_and_return_err:
       ictx->unregister_watch();
     }
 
+    if (!ictx->access_list.empty()) {
+      if (cls_client::set_access_list(&ictx->md_ctx, ictx->header_oid, ictx->access_list) < 0)
+        lderr(ictx->cct) << "couldn't set access list" << dendl;
+
+      {
+        std::vector<uint64_t> outvec;
+        if (cls_client::get_access_list(&ictx->md_ctx, ictx->header_oid, CEPH_NOSNAP, &outvec) < 0) {
+          lderr(ictx->cct) << "couldn't get access list" << dendl;
+        }
+
+        ldout(ictx->cct, 20) << "access list from header:" << dendl;
+        for (std::vector<uint64_t>::iterator it = outvec.begin();
+             it != outvec.end(); ++it) {
+          ldout(ictx->cct, 20) << "  " << *it << dendl;
+        }
+      }
+    }
+
     delete ictx;
   }
 
@@ -2533,6 +2570,61 @@ reprotect_and_return_err:
       object_size = ictx->get_object_size();
       overlap = ictx->parent_md.overlap;
       overlap_objects = Striper::get_num_objects(ictx->layout, overlap); 
+    }
+
+    // flatten based on access list first
+    std::vector<uint64_t> access_list;
+    r = cls_client::get_access_list(&ictx->md_ctx, ictx->header_oid, CEPH_NOSNAP, &access_list);
+    if ((r == 0) && !access_list.empty()) {
+      ldout(ictx->cct, 20) << "flatten on access list:" << dendl;
+
+      SimpleThrottle throttle(cct->_conf->rbd_concurrent_management_ops, false);
+      uint64_t flatten_count = 0;
+
+      for (std::vector<uint64_t>::iterator it = access_list.begin();
+           it != access_list.end(); ++it) {
+        {
+          RWLock::RLocker l(ictx->parent_lock);
+          // stop early if the parent went away - it just means
+          // another flatten finished first, so this one is useless.
+          if (!ictx->parent) {
+            throttle.wait_for_ret();
+            return 0;
+          }
+        }
+
+        ldout(ictx->cct, 20) << "flattening  " << *it << dendl;
+
+        // map child object onto the parent
+        vector<pair<uint64_t,uint64_t> > objectx;
+        Striper::extent_to_file(cct, &ictx->layout,
+                                *it, 0, object_size,
+                                objectx);
+        uint64_t object_overlap = ictx->prune_parent_extents(objectx, overlap);
+        assert(object_overlap <= object_size);
+
+        bufferlist bl;
+        string oid = ictx->get_object_name(*it);
+        Context *comp = new C_SimpleThrottle(&throttle);
+        AioWrite *write_req = new AioWrite(ictx, oid, *it, 0, objectx, object_overlap,
+                                           bl, snapc, CEPH_NOSNAP, comp);
+        r = write_req->send();
+        if (r < 0) {
+          lderr(cct) << "failed to flatten object " << oid << dendl;
+          throttle.wait_for_ret();
+          return r;
+        }
+
+        prog_ctx.update_progress(flatten_count++, overlap_objects);
+      }
+
+      r = throttle.wait_for_ret();
+      if (r < 0) {
+        lderr(cct) << "failed to flatten at least one object: "
+                  << cpp_strerror(r) << dendl;
+        throttle.wait_for_ret();
+        return r;
+      }
     }
 
     AsyncFlattenRequest *req =
@@ -3325,6 +3417,7 @@ reprotect_and_return_err:
 	AioWrite *req = new AioWrite(ictx, p->oid.name, p->objectno, p->offset,
 				     objectx, object_overlap,
 				     bl, snapc, snap_id, req_comp);
+	ictx->record_access(p->objectno);
 	c->add_request();
 
 	req->set_op_flags(op_flags);
@@ -3579,6 +3672,9 @@ reprotect_and_return_err:
 				   q->objectno, q->offset, q->length,
 				   q->buffer_extents, snapc,
 				   snap_id, true, req_comp, op_flags, op_priority);
+	// record in access_map
+	ictx->record_access(q->objectno);
+
 	req_comp->set_req(req);
 	c->add_request();
 

@@ -189,6 +189,7 @@ namespace librbd {
 				 object_no, off, objectx, object_overlap,
 				 bl, snapc, snap_id,
 				 req_comp);
+    m_ictx->record_access(object_no);
     req->send();
     return ++m_tid;
   }

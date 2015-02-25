@@ -96,6 +96,8 @@ cls_method_handle_t h_dir_rename_image;
 cls_method_handle_t h_object_map_load;
 cls_method_handle_t h_object_map_resize;
 cls_method_handle_t h_object_map_update;
+cls_method_handle_t h_get_access_list;
+cls_method_handle_t h_set_access_list;
 cls_method_handle_t h_old_snapshots_list;
 cls_method_handle_t h_old_snapshot_add;
 cls_method_handle_t h_old_snapshot_remove;
@@ -2109,6 +2111,90 @@ int object_map_update(cls_method_context_t hctx, bufferlist *in, bufferlist *out
   return r;
 }
 
+/**
+ * Get a rbd image's access list
+ *
+ * Input:
+ * @param snap_id which snapshot to query, or CEPH_NOSNAP (
+ *
+ * Output:
+ * @param access list
+ * @returns 0 on success, negative error code on failure
+ */
+int get_access_list(cls_method_context_t hctx, bufferlist *in, bufferlist *out)
+{
+  snapid_t snap_id;
+  bufferlist::iterator iter = in->begin();
+  try {
+    ::decode(snap_id, iter);
+  } catch (const buffer::error &err) {
+    return -EINVAL;
+  }
+
+  CLS_LOG(20, "get_access_list snap_id=%llu", (unsigned long long)snap_id);
+
+  cls_rbd_snap snap;
+  if (snap_id == CEPH_NOSNAP) {
+    int r = read_key(hctx, "access_list", &snap.access_list);
+    if (r < 0 && r != -ENOENT) {
+      CLS_ERR("failed to read the access list off of disk: %s",
+              cpp_strerror(r).c_str());
+      return r;
+    }
+  } else {
+    string snapshot_key;
+    key_from_snap_id(snap_id, &snapshot_key);
+    int r = read_key(hctx, snapshot_key, &snap);
+    if (r < 0 && r != -ENOENT)
+      return r;
+  }
+
+  CLS_ERR("get_access_list:");
+  for (std::vector<uint64_t>::iterator it = snap.access_list.begin();
+       it != snap.access_list.end(); ++it) {
+    CLS_ERR("%lu", *it);
+  }
+
+  ::encode(snap.access_list, *out);
+  return 0;
+}
+
+/**
+ * Set a rbd image's access list
+ *
+ * Input:
+ * @param access_list the image access list
+ *
+ * Output:
+ * @returns 0 on success, negative error code on failure
+ */
+int set_access_list(cls_method_context_t hctx, bufferlist *in, bufferlist *out)
+{
+  std::vector<uint64_t> access_list;
+  bufferlist::iterator iter = in->begin();
+  try {
+    ::decode(access_list, iter);
+  } catch (const buffer::error &err) {
+    return -EINVAL;
+  }
+
+  int r = check_exists(hctx);
+  if (r < 0)
+    return r;
+
+  CLS_LOG(20, "set_access_list");
+  CLS_ERR("set_access_list:");
+  for (std::vector<uint64_t>::iterator it = access_list.begin();
+    it != access_list.end(); ++it) {
+    CLS_ERR("%lu", *it);
+  }
+
+  bufferlist bl;
+  ::encode(access_list, bl);
+
+  return cls_cxx_map_set_val(hctx, "access_list", &bl);
+}
+
 /****************************** Old format *******************************/
 
 int old_snapshots_list(cls_method_context_t hctx, bufferlist *in, bufferlist *out)
@@ -2420,6 +2506,12 @@ void __cls_init()
   cls_register_cxx_method(h_class, "object_map_update",
                           CLS_METHOD_RD | CLS_METHOD_WR,
 			  object_map_update, &h_object_map_update);
+  cls_register_cxx_method(h_class, "get_access_list",
+                          CLS_METHOD_RD,
+                          get_access_list, &h_get_access_list);
+  cls_register_cxx_method(h_class, "set_access_list",
+                          CLS_METHOD_RD | CLS_METHOD_WR,
+                          set_access_list, &h_set_access_list);
 
   /* methods for the old format */
   cls_register_cxx_method(h_class, "snap_list",
