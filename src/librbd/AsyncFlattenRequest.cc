@@ -63,6 +63,7 @@ public:
       return 1;
     }
 
+    ldout(cct, 20) << "async flatten  " << m_object_no << dendl;
     bufferlist bl;
     string oid = m_image_ctx.get_object_name(m_object_no);
     AioWrite *req = new AioWrite(&m_image_ctx, oid, m_object_no, 0, objectx,
