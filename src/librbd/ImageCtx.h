@@ -84,6 +84,7 @@ namespace librbd {
     Mutex async_ops_lock; // protects async_ops
     Mutex copyup_list_lock; // protects copyup_waiting_list
     Mutex access_list_lock; // protects access_list
+    Mutex migrator_thread_lock; // protects migrator threa
 
     unsigned extra_read_flags;
 
@@ -105,6 +106,19 @@ namespace librbd {
     ObjectCacher *object_cacher;
     LibrbdWriteback *writeback_handler;
     ObjectCacher::ObjectSet *object_set;
+
+    class ImageMigratorThread : public Thread
+    {
+    public:
+      ImageMigratorThread(ImageCtx *ictx)
+        : m_ictx(ictx) {}
+
+      ~ImageMigratorThread() {}
+
+    protected:
+      virtual void * entry();
+      ImageCtx *m_ictx;
+    } *migrator_thread;
 
     Readahead readahead;
     uint64_t total_bytes_read;

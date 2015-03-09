@@ -2410,6 +2410,26 @@ reprotect_and_return_err:
     if ((r = _snap_set(ictx, ictx->snap_name.c_str())) < 0)
       goto err_close;
 
+    // fire off image migration if needed
+    if (ictx->cct->_conf->rbd_migrate_on_open) {
+      if ((ictx->parent_md.spec.pool_id != -1) &&
+          (ictx->snap_id == CEPH_NOSNAP) &&
+          (!ictx->read_only)) {
+
+        ictx->migrator_thread_lock.Lock();
+        if (ictx->migrator_thread) {
+          ictx->migrator_thread_lock.Unlock();
+          return 0;
+        }
+        ictx->migrator_thread = new ImageCtx::ImageMigratorThread(ictx);
+        ictx->migrator_thread->create();
+        ictx->migrator_thread_lock.Unlock();
+
+        ldout(ictx->cct, 20) << __func__
+                             << ": fire off image migration during opening in another thred"
+                             << dendl;
+      }
+    }
     return 0;
 
   err_close:
@@ -2420,6 +2440,11 @@ reprotect_and_return_err:
   void close_image(ImageCtx *ictx)
   {
     ldout(ictx->cct, 20) << "close_image " << ictx << dendl;
+
+    if (ictx->migrator_thread) {
+      ictx->migrator_thread->join();
+      delete ictx->migrator_thread;
+    }
 
     ictx->readahead.wait_for_pending();
     if (ictx->object_cacher) {

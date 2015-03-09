@@ -51,6 +51,7 @@ namespace librbd {
       async_ops_lock("librbd::ImageCtx::async_ops_lock"),
       copyup_list_lock("librbd::ImageCtx::copyup_list_lock"),
       access_list_lock("librbd::ImageCtx::access_list_lock"),
+      migrator_thread_lock("librbd::ImageCtx::migrator_thread_lock"),
       extra_read_flags(0),
       old_format(true),
       order(0), size(0), features(0),
@@ -58,7 +59,7 @@ namespace librbd {
       id(image_id), parent(NULL),
       stripe_unit(0), stripe_count(0), flags(0),
       object_cacher(NULL), writeback_handler(NULL), object_set(NULL),
-      readahead(),
+      migrator_thread(NULL), readahead(),
       total_bytes_read(0), copyup_finisher(NULL),
       object_map(NULL)
   {
@@ -722,5 +723,51 @@ namespace librbd {
       if (it == access_list.end())
         access_list.push_back(objectno);
     }
+  }
+
+  void *ImageCtx::ImageMigratorThread::entry() {
+    CephContext *cct = m_ictx->cct;
+    ldout(cct, 20) << "ImageMigratorThread::entry: started migration" << dendl;
+
+    int r;
+    uint64_t object_size;
+    uint64_t overlap;
+    ::SnapContext snapc;
+    uint64_t period;
+    uint64_t num_periods;
+    uint64_t num_objects;
+    int64_t parent_pool_id;
+    string parent_image_id;
+    snap_t parent_snap_id;
+
+    {
+      RWLock::RLocker l(m_ictx->md_lock);
+      RWLock::RLocker l2(m_ictx->snap_lock);
+      RWLock::RLocker l3(m_ictx->parent_lock);
+
+      snapc = m_ictx->snapc;
+      object_size = m_ictx->get_object_size();
+      overlap = m_ictx->parent_md.overlap;
+      period = m_ictx->get_stripe_period();
+      num_periods = (m_ictx->get_current_size() + period - 1) / period;
+      num_objects = num_periods * m_ictx->get_stripe_count();
+      parent_pool_id = m_ictx->get_parent_pool_id(m_ictx->snap_id);
+      parent_image_id = m_ictx->get_parent_image_id(m_ictx->snap_id);
+      parent_snap_id = m_ictx->get_parent_snap_id(m_ictx->snap_id);
+    }
+
+    //SimpleThrottle throttle(cct->_conf->rbd_concurrent_management_ops, false);
+
+    NoOpProgressContext prog_ctx;
+    if (flatten(m_ictx, prog_ctx) < 0) {
+      ldout(cct, 20) << "ImageMigratorThread::entry: migration failed" << dendl;
+    }
+
+    ldout(cct, 20) << "ImageMigratorThread::entry: finished migration" << dendl;
+    return NULL;
+
+    //err:
+    //  throttle.wait_for_ret();
+    //  return NULL;
   }
 }

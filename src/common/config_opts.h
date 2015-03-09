@@ -867,6 +867,7 @@ OPTION(rbd_clone_copy_on_read, OPT_BOOL, false)
 OPTION(rbd_object_map, OPT_BOOL, false) // whether to enable the RBD object map
 OPTION(rbd_blacklist_on_break_lock, OPT_BOOL, true) // whether to blacklist clients whose lock was broken
 OPTION(rbd_blacklist_expire_seconds, OPT_INT, 0) // number of seconds to blacklist - set to 0 for OSD default
+OPTION(rbd_migrate_on_open, OPT_BOOL, false)
 
 /*
  * The following options change the behavior for librbd's image creation methods that
