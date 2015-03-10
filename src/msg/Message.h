@@ -460,7 +460,8 @@ public:
 
   void encode(uint64_t features, int crcflags);
   static void _compress_encode(bufferlist &in_bl, bufferlist &out_bl);
-  void compress(int crcflags, ceph_msg_header &header, ceph_msg_footer& footer,
+  void compress(int crcflags, uint64_t compress_threshold,
+                ceph_msg_header &header, ceph_msg_footer& footer,
                 bufferlist& front, bufferlist& middle, bufferlist& data);
   static int _decompress_decode(bufferlist &in_bl, bufferlist &out_bl);
   static int decompress(CephContext *cct, int crcflags, ceph_msg_header &header,

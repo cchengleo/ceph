@@ -2215,7 +2215,8 @@ int AsyncConnection::_send(Message *m)
                          << " data_len=" << m->get_data().length()
                          << " header.data_len=" << header.data_len
                          << dendl;
-    m->compress(msgr->crcflags, header, footer, front, middle, data);
+    m->compress(msgr->crcflags, msgr->cct->_conf->ms_compress_threshold,
+                header, footer, front, middle, data);
     ldout(msgr->cct, 20) << __func__ << " BEFORE compression:\n"
                          << " front_len=" << m->get_payload().length()
                          << " header.front_len=" << header.front_len
